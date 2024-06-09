@@ -31,6 +31,16 @@ class APromise {
     // call the executor immediately
     doResolve(this, executor);
   }
+
+  then(onFulfilled, onRejected) {
+    handleResolved(this, onFulfilled, onRejected);
+  }
+}
+
+// call either the onFulfilled or onRejected function
+function handleResolved(promise, onFulfilled, onRejected) {
+  const cb = promise.state === FULFILLED ? onFulfilled : onRejected;
+  cb(promise.value);
 }
 
 // fulfill with `value`
@@ -47,11 +57,23 @@ function reject(promise, reason) {
 
 // creates the fulfill/reject functions that are arguments of the executor
 function doResolve(promise, executor) {
+  let called = false;
+
   function wrapFulfill(value) {
+    if (called) {
+      return;
+    }
+
+    called = true;
     fulfill(promise, value);
   }
 
   function wrapReject(reason) {
+    if (called) {
+      return;
+    }
+
+    called = true;
     reject(promise, reason);
   }
 
