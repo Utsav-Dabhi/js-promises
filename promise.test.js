@@ -111,3 +111,75 @@ describe("One way transition", () => {
     expect(promise.state).toBe("REJECTED");
   });
 });
+
+describe("handling executor errors", () => {
+  it("when the executor fails the promise should transition to the REJECTED state", () => {
+    const reason = new Error("failed");
+    const onRejected = jest.fn();
+
+    const promise = new APromise((resolve, reject) => {
+      throw reason;
+    });
+    promise.then(null, onRejected);
+
+    expect(onRejected.mock.calls.length).toBe(1);
+    expect(onRejected.mock.calls[0][0]).toBe(reason);
+    expect(promise.state).toBe("REJECTED");
+  });
+});
+
+describe("Async executors", () => {
+  it("should queue callbacks when the promise is not fulfilled immediately", (done) => {
+    const value = "value";
+    const onFulfilled = jest.fn();
+
+    const promise = new APromise((fulfill, reject) => {
+      setTimeout(fulfill, 1, value);
+    });
+    promise.then(onFulfilled);
+
+    setTimeout(() => {
+      // should have been called once
+      expect(onFulfilled.mock.calls.length).toBe(1);
+      expect(onFulfilled.mock.calls[0][0]).toBe(value);
+      promise.then(onFulfilled);
+    }, 5);
+
+    // should not be called immediately
+    expect(onFulfilled.mock.calls.length).toBe(0);
+
+    setTimeout(function () {
+      // should have been called twice
+      expect(onFulfilled.mock.calls.length).toBe(2);
+      expect(onFulfilled.mock.calls[1][0]).toBe(value);
+      done();
+    }, 10);
+  });
+
+  it("should queue callbacks when the promise is not rejected immediately", (done) => {
+    const reason = "reason";
+    const onRejected = jest.fn();
+
+    const promise = new APromise((fulfill, reject) => {
+      setTimeout(reject, 1, reason);
+    });
+    promise.then(null, onRejected);
+
+    setTimeout(() => {
+      // should have been called once
+      expect(onRejected.mock.calls.length).toBe(1);
+      expect(onRejected.mock.calls[0][0]).toBe(reason);
+      promise.then(null, onRejected);
+    }, 5);
+
+    // should not be called immediately
+    expect(onRejected.mock.calls.length).toBe(0);
+
+    setTimeout(function () {
+      // should have been called twice
+      expect(onRejected.mock.calls.length).toBe(2);
+      expect(onRejected.mock.calls[1][0]).toBe(reason);
+      done();
+    }, 10);
+  });
+});

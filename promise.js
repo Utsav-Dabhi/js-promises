@@ -28,18 +28,35 @@ class APromise {
     // the fulfillment value or rejection reason is mapped internally to `value`
     // initially the promise doesn't have a value
 
+    // .then handler queue
+    this.queue = [];
+
     // call the executor immediately
     doResolve(this, executor);
   }
 
   then(onFulfilled, onRejected) {
-    handleResolved(this, onFulfilled, onRejected);
+    handle(this, { onFulfilled, onRejected });
+  }
+}
+
+// checks the state of the promise to either:
+// - queue it for later use if the promise is PENDING
+// - call the handler if the promise is not PENDING
+function handle(promise, handler) {
+  if (promise.state === PENDING) {
+    // queue if PENDING
+    promise.queue.push(handler);
+  } else {
+    // execute immediately
+    handleResolved(promise, handler);
   }
 }
 
 // call either the onFulfilled or onRejected function
-function handleResolved(promise, onFulfilled, onRejected) {
-  const cb = promise.state === FULFILLED ? onFulfilled : onRejected;
+function handleResolved(promise, handler) {
+  const cb =
+    promise.state === FULFILLED ? handler.onFulfilled : handler.onRejected;
   cb(promise.value);
 }
 
@@ -47,12 +64,26 @@ function handleResolved(promise, onFulfilled, onRejected) {
 function fulfill(promise, value) {
   promise.state = FULFILLED;
   promise.value = value;
+
+  // invoke all handlers once state changes
+  finale(promise);
 }
 
 // reject with `reason`
 function reject(promise, reason) {
   promise.state = REJECTED;
   promise.value = reason;
+
+  // invoke all handlers once state changes
+  finale(promise);
+}
+
+// invoke all the handlers stored in the promise
+function finale(promise) {
+  const length = promise.queue.length;
+  for (let i = 0; i < length; i += 1) {
+    handle(promise, promise.queue[i]);
+  }
 }
 
 // creates the fulfill/reject functions that are arguments of the executor
@@ -77,7 +108,11 @@ function doResolve(promise, executor) {
     reject(promise, reason);
   }
 
-  executor(wrapFulfill, wrapReject);
+  try {
+    executor(wrapFulfill, wrapReject);
+  } catch (err) {
+    wrapReject(err);
+  }
 }
 
 module.exports = APromise;
