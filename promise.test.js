@@ -183,3 +183,66 @@ describe("Async executors", () => {
     }, 10);
   });
 });
+
+describe("Chaining promises", () => {
+  it(".then should return a new promise", () => {
+    expect(function () {
+      const qOnFulfilled = jest.fn();
+      const rOnFulfilled = jest.fn();
+
+      const p = new APromise((fulfill) => fulfill());
+      const q = p.then(qOnFulfilled);
+      const r = q.then(rOnFulfilled);
+    }).not.toThrow();
+  });
+
+  it("if .then's onFulfilled is called without errors it should transition to FULFILLED", () => {
+    const value = "value";
+    const f1 = jest.fn();
+
+    new APromise((fulfill) => fulfill()).then(() => value).then(f1);
+
+    expect(f1.mock.calls.length).toBe(1);
+    expect(f1.mock.calls[0][0]).toBe(value);
+  });
+
+  it("if .then's onRejected is called without errors it should transition to FULFILLED", () => {
+    const value = "value";
+    const f1 = jest.fn();
+
+    new APromise((fulfill, reject) => reject())
+      .then(null, () => value)
+      .then(f1);
+
+    expect(f1.mock.calls.length).toBe(1);
+    expect(f1.mock.calls[0][0]).toBe(value);
+  });
+
+  it("if .then's onFulfilled is called and has an error it should transition to REJECTED", () => {
+    const reason = new Error("reason");
+    const f1 = jest.fn();
+
+    new APromise((fulfill) => fulfill())
+      .then(() => {
+        throw reason;
+      })
+      .then(null, f1);
+
+    expect(f1.mock.calls.length).toBe(1);
+    expect(f1.mock.calls[0][0]).toBe(reason);
+  });
+
+  it("if .then's onRejected is called and has an error it should transition to REJECTED", () => {
+    const reason = new Error("reason");
+    const f1 = jest.fn();
+
+    new APromise((fulfill, reject) => reject())
+      .then(null, () => {
+        throw reason;
+      })
+      .then(null, f1);
+
+    expect(f1.mock.calls.length).toBe(1);
+    expect(f1.mock.calls[0][0]).toBe(reason);
+  });
+});

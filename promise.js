@@ -36,7 +36,13 @@ class APromise {
   }
 
   then(onFulfilled, onRejected) {
-    handle(this, { onFulfilled, onRejected });
+    // empty executor
+    const promise = new APromise(() => {});
+
+    // store the promise as well
+    handle(this, { promise, onFulfilled, onRejected });
+
+    return promise;
   }
 }
 
@@ -57,7 +63,14 @@ function handle(promise, handler) {
 function handleResolved(promise, handler) {
   const cb =
     promise.state === FULFILLED ? handler.onFulfilled : handler.onRejected;
-  cb(promise.value);
+
+  // execute the handler and transition according to the rules
+  try {
+    const value = cb(promise.value);
+    fulfill(handler.promise, value);
+  } catch (err) {
+    reject(handler.promise, err);
+  }
 }
 
 // fulfill with `value`
